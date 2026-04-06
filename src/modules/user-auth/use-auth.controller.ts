@@ -14,6 +14,7 @@ import {
 } from '@nestjs/swagger';
 import { UserLoginDto } from './dto/user-login.dto';
 import { RefreshSessionDto } from './user_sessions/dto/refresh-session.dto';
+import { UserLoginResponseDto } from './dto/response/user-login-response.dto';
 
 @ApiTags('User/auth')
 @ApiSecurity('app-token')
@@ -23,10 +24,22 @@ export class UserAuthController {
 
   @Post('login')
   @ApiOperation({ summary: 'User login endpoint' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({
+    status: 200,
+    description: 'Login successful',
+    type: UserLoginResponseDto,
+  })
   @ApiResponse({
     status: 400,
     description: 'Invalid credentials or missing fields',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid credentials',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found.',
   })
   async login(@Body() body: UserLoginDto, @Req() req: Request) {
     const response = await this.userAuthService.login(

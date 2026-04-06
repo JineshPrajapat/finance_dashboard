@@ -14,8 +14,6 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBody,
-  ApiQuery,
   ApiParam,
   ApiSecurity,
   ApiBearerAuth,
@@ -24,6 +22,11 @@ import { FinancialRecordsService } from './financial-records.service';
 import { CreateFinancialRecordDto } from './dto/create-financial-record.dto';
 import { UpdateFinancialRecordDto } from './dto/update-financial-record.dto';
 import { FilterFinancialRecordDto } from './dto/filter-financial-record.dto';
+import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
+import { GetAllRecordsResponseDto } from './dto/response/get-all-records-response.dto';
+import { UpdateRecordResponseDto } from './dto/response/update-record-response.dto';
+import { DeleteRecordResponseDto } from './dto/response/delete-record-response.dto';
+import { CreateRecordResponseDto } from './dto/response/create-financial-record-response.dto';
 
 @ApiTags('Financial Records')
 @ApiSecurity('app-token')
@@ -39,13 +42,13 @@ export class FinancialRecordsController {
   @ApiResponse({
     status: 201,
     description: 'Record created successfully',
-    schema: {
-      example: {
-        code: 201,
-        status: 'success',
-        message: 'Record created successfully',
-      },
-    },
+    type: CreateRecordResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden - You do not have permission to perform this action',
+    type: ErrorResponseDto,
   })
   async create(@Body() dto: CreateFinancialRecordDto, @Req() req: any) {
     return this.financialRecordsService.createRecord(dto, req['user']);
@@ -56,30 +59,38 @@ export class FinancialRecordsController {
   @ApiResponse({
     status: 200,
     description: 'Records fetched successfully',
+    type: GetAllRecordsResponseDto,
   })
-  async findAll(@Query() filter: FilterFinancialRecordDto, @Req() req: any) {
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden - You do not have permission to perform this action',
+    type: ErrorResponseDto,
+  })
+  async getAllRecords(
+    @Query() filter: FilterFinancialRecordDto,
+    @Req() req: any,
+  ) {
     return this.financialRecordsService.getRecords(filter, req['user']);
   }
 
-  // ✅ Update Record
   @Patch(':id')
   @ApiOperation({ summary: 'Update a financial record' })
   @ApiParam({ name: 'id', example: 1 })
-  @ApiBody({ type: UpdateFinancialRecordDto })
   @ApiResponse({
     status: 200,
     description: 'Record updated successfully',
-    schema: {
-      example: {
-        code: 200,
-        status: 'success',
-        message: 'Record updated',
-      },
-    },
+    type: UpdateRecordResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Record not found',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden - You do not have permission to perform this action',
+    type: ErrorResponseDto,
   })
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -89,24 +100,23 @@ export class FinancialRecordsController {
     return this.financialRecordsService.updateRecord(id, dto, req['user']);
   }
 
-  // ✅ Delete Record
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a financial record' })
   @ApiParam({ name: 'id', example: 1 })
   @ApiResponse({
     status: 200,
     description: 'Record deleted successfully',
-    schema: {
-      example: {
-        code: 200,
-        status: 'success',
-        message: 'Record deleted',
-      },
-    },
+    type: DeleteRecordResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Record not found',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden - You do not have permission to perform this action',
+    type: ErrorResponseDto,
   })
   async delete(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.financialRecordsService.deleteRecord(id, req['user']);

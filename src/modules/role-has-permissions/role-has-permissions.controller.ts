@@ -9,6 +9,9 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { UpdateRoleHasPermissionsDto } from './dto/update-role-has-permissions.dto';
+import { GetRolePermissionsResponseDto } from './dto/response/get-role-permission-reponse.dto';
+import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
+import { RoleHasPermissionResponseDto } from './dto/response/update-role-has-permission-reponse.dto';
 
 @ApiTags('role/permissions')
 @ApiSecurity('app-token')
@@ -24,11 +27,19 @@ export class RoleHasPermissionsController {
   @ApiResponse({
     status: 200,
     description: 'Role permissions retrieved successfully.',
+    type: GetRolePermissionsResponseDto,
   })
   @ApiResponse({
     status: 401,
     description:
       'Role permissions not found or something went wrong. Please try again later.',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden - You do not have permission to perform this action',
+    type: ErrorResponseDto,
   })
   async getRolePermissions(@Param('role') role: string) {
     return this.roleHasPermissionsService.getRolePermissions(role);
@@ -41,12 +52,15 @@ export class RoleHasPermissionsController {
     description: 'Permission has been successfully changed.',
   })
   @ApiResponse({
-    status: 401,
-    description: 'something went wrong. Please try again later.',
+    status: 403,
+    description:
+      'Forbidden - You do not have permission to perform this action',
+    type: ErrorResponseDto,
   })
   async updateRolePermissions(
     @Body() updateRoleHasPermissionsDto: UpdateRoleHasPermissionsDto,
     @Req() req: Request,
+    type: RoleHasPermissionResponseDto,
   ) {
     return this.roleHasPermissionsService.updateRolePermissions(
       updateRoleHasPermissionsDto,

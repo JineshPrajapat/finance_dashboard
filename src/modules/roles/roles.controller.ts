@@ -8,6 +8,8 @@ import {
   ApiSecurity,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { GetRolesResponseDto } from './dto/response/get-role-response.dto';
+import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 
 @Controller('roles')
 @ApiSecurity('app-token')
@@ -35,11 +37,19 @@ export class RolesController {
   @ApiResponse({
     status: 200,
     description: 'User roles retrieved successfully.',
+    type: GetRolesResponseDto,
   })
   @ApiResponse({
-    status: 401,
+    status: 404,
     description:
       'User roles not found or something went wrong. Please try again later.',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden - You do not have permission to perform this action',
+    type: ErrorResponseDto,
   })
   async getListOFAllEnableAdminRoles() {
     return this.rolesService.getListofAllEnableRoles();

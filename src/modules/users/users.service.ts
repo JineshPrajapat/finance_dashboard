@@ -45,7 +45,7 @@ export class UserService {
     try {
       const hasPermission = await this.roleHasPermissionsService.hasPermission(
         currentUser.role,
-        'create.user',
+        'user.create',
       );
       if (!hasPermission) {
         return {
