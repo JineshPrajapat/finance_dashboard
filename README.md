@@ -1,37 +1,179 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Finance Dashboard Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A modular backend system built with NestJS and TypeORM that implements role-based access control (RBAC), financial record management, and analytics endpoints for a dashboard use case. The design emphasizes separation of concerns, database-driven authorization, and extensibility.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Table of Contents
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+1. [Overview](#1-overview)  
+2. [Architecture](#2-architecture)  
+3. [RBAC Model](#3-rbac-model)  
+4. [Data Model](#4-data-model)  
+5. [Seed Data](#5-seed-data-roles-permissions-owner-admin)  
+6. [Financial Records and Analytics](#6-financial-records-and-analytics)  
+7. [Execution and Setup](#7-execution-and-setup)  
+8. [Design Considerations](#8-design-considerations)  
 
-## Project setup
+---
 
-```bash
-$ yarn install
+## 1. Overview
+
+The system provides:
+
+* User and role management with database-driven permissions
+* Secure authentication using JWT with refresh sessions
+* Financial record CRUD with filtering
+* Aggregated dashboard analytics (totals, trends, categories)
+
+Authorization is enforced at the service layer using role-permission mappings stored in the database. A privileged role (`owner_admin`) bypasses permission checks to simplify administration.
+
+---
+
+## 2. Architecture
+
+```mermaid
+flowchart LR
+    Client --> API[NestJS Controllers]
+    API --> MW[JWT Middleware]
+    MW --> Svc[Services]
+    Svc --> Repo[Repositories]
+    Repo --> DB[(SQL Database)]
+
+    Svc --> RBAC[RBAC Check]
+    RBAC -->|owner_admin| Allow
+    RBAC -->|role permissions| AllowOrDeny
 ```
 
-## Compile and run the project
+* Controllers are thin and delegate to services
+* Services encapsulate business logic and authorization
+* Repositories handle persistence via TypeORM
+* RBAC checks are centralized and reusable
+
+---
+
+## 3. RBAC Model
+
+Authorization is implemented using a Role + Permission model.
+
+```mermaid
+erDiagram
+    USERS ||--o{ ROLES : has
+    ROLES ||--o{ ROLE_HAS_PERMISSIONS : maps
+    PERMISSIONS ||--o{ ROLE_HAS_PERMISSIONS : maps
+```
+
+* Each user is assigned a single role
+* Roles are associated with multiple permissions
+* Permissions are expressed as `resource.action` (e.g., `user.create`, `record.view`)
+* `owner_admin` bypasses all permission checks (no need to persist full mappings)
+
+Authorization flow:
+
+1. Request is authenticated and `req['user']` is populated
+2. If role is `owner_admin`, request is allowed
+3. Otherwise, role permissions are fetched from DB
+4. Required permission is matched and access is granted or denied
+
+---
+
+## 4. Data Model
+
+Core tables:
+
+* `users` (user profile, role reference, status, soft delete)
+* `roles` (role definitions)
+* `permissions` (permission registry)
+* `role_has_permissions` (role-permission mapping)
+* `user_sessions` (refresh token storage)
+* `financial_records` (transactional data for dashboard)
+
+The schema is managed by TypeORM; tables are created automatically based on entities. No manual DDL is required.
+
+---
+
+## 5. Seed Data (Roles, Permissions, Owner Admin)
+
+Roles and permissions are seeded manually to establish the initial RBAC baseline. The design supports adding new roles and permissions without code changes.
+
+### Roles
+
+| role_id | name        | type        | status  |
+| ---: | ----------- | ----------- | ------- |
+|    1 | Owner Admin | owner_admin | Disable |
+|    2 | Admin       | admin       | Enable  |
+|    3 | Viewer      | viewer      | Enable  |
+|    4 | Analyst     | analyst     | Enable  |
+|    5 | Customer    | customer    | Enable  |
+
+Notes:
+
+* `type` is the canonical key used in authorization checks
+* Additional roles can be introduced without code changes
+
+### Permissions
+
+Permissions follow a consistent namespace and can be extended at runtime.
+
+| permission_id | name                    | title                          |
+| ---: | ----------------------- | ------------------------------ |
+|    1 | user.create             | Add User                       |
+|    2 | user.delete             | Delete User                    |
+|    3 | user.edit               | Edit User                      |
+|    4 | user.view               | View User                      |
+|    5 | user.list               | List Users                     |
+|    6 | role.view               | View Roles                     |
+|    7 | role.list               | List Roles                     |
+|    8 | role.permission.view    | View Role Permissions          |
+|    9 | role.permission.update  | Assign/Update Role Permissions |
+|   10 | record.create           | Create Financial Record        |
+|   11 | record.view             | View Financial Record          |
+|   12 | record.list             | List Financial Records         |
+|   13 | record.edit             | Update Financial Record        |
+|   14 | record.delete           | Delete Financial Record        |
+|   15 | dashboard.view          | View Dashboard Summary         |
+|   16 | dashboard.category.view | View Category Analytics        |
+|   17 | dashboard.trend.view    | View Trends                    |
+|   18 | dashboard.recent.view   | View Recent Activity           |
+
+### Owner Admin User
+
+A bootstrap user with the `owner_admin` role is created manually to manage roles and permissions. This user bypasses RBAC checks and is used for initial system configuration.
+
+---
+
+## 6. Financial Records and Analytics
+
+The `financial_records` module handles transactional data and supports filtering by type, category, and date range. Records include amount, type (income/expense), category, date, notes, and creator reference.
+
+Analytics are computed using database aggregations:
+
+* Summary totals (income, expense, net balance)
+* Category-wise totals
+* Time-based trends (monthly/weekly)
+* Recent activity
+
+These are implemented via optimized query builders rather than in-memory computation, ensuring scalability for larger datasets.
+
+---
+
+## 7. Execution and Setup
+
+### Prerequisites
+
+* Node.js (LTS)
+* SQL database (e.g., PostgreSQL/MySQL)
+
+### Steps
+
+1. Configure database connection in environment variables
+2. Install dependencies
+
+```bash
+yarn install
+```
+
+3. Compile and run the application
 
 ```bash
 # development
@@ -44,55 +186,19 @@ $ yarn run start:dev
 $ yarn run start:prod
 ```
 
-## Run tests
+* On startup, TypeORM synchronizes entities and creates tables
+* Seed roles, permissions, and an owner admin user as shown above
 
-```bash
-# unit tests
-$ yarn run test
+---
 
-# e2e tests
-$ yarn run test:e2e
+## 8. Design Considerations
 
-# test coverage
-$ yarn run test:cov
-```
+* **Database-driven RBAC**: permissions are hardcoded, enabling runtime changes
+* **Owner override**: simplifies administration and bootstrapping
+* **Modular structure**: each domain (users, roles, records, dashboard) is isolated
+* **Query efficiency**: indexes and aggregation queries are used for analytics
+* **Extensibility**: new roles, permissions, and modules can be added without structural changes
 
-## Deployment
+The system is designed to be a clean, maintainable baseline that can be extended with guards, caching, pagination, and audit logging for production environments.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ yarn install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+It is structured to be **production-ready, extensible, and maintainable**, aligning with modern backend engineering standards.
